@@ -26,7 +26,7 @@ jobs:
           VITE_APP_LIBRARY_BACKEND=https://us-central1-excalidraw-room-persistence.cloudfunctions.net/libraries
 
           VITE_APP_PLUS_LP=https://plus.excalidraw.com
-          VITE_APP_PLUS_APP=https://app.excalidraw.com
+          VITE_APP_PLUS_APP=https://draw.excalidraw.com
 
           VITE_APP_AI_BACKEND=https://oss-ai.excalidraw.com
 
