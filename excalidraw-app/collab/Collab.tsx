@@ -73,9 +73,9 @@ import {
 import { LocalData } from "../data/LocalData";
 import {
   isSavedToFirebase,
-  loadFilesFromFirebase,
+  loadFiles,
   loadFromFirebase,
-  saveFilesToFirebase,
+  saveFiles,
   saveToFirebase,
 } from "../data/firebase";
 import {
@@ -153,7 +153,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
           throw new AbortError();
         }
 
-        return loadFilesFromFirebase(`files/rooms/${roomId}`, roomKey, fileIds);
+        return loadFiles(`files/rooms/${roomId}`, roomKey, fileIds);
       },
       saveFiles: async ({ addedFiles }) => {
         const { roomId, roomKey } = this.portal;
@@ -161,7 +161,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
           throw new AbortError();
         }
 
-        const { savedFiles, erroredFiles } = await saveFilesToFirebase({
+        const { savedFiles, erroredFiles } = await saveFiles({
           prefix: `${FIREBASE_STORAGE_PREFIXES.collabFiles}/${roomId}`,
           files: await encodeFilesForUpload({
             files: addedFiles,

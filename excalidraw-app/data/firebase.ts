@@ -37,6 +37,7 @@ import { getSyncableElements } from ".";
 import type { SyncableExcalidrawElement } from ".";
 import type Portal from "../collab/Portal";
 import type { Socket } from "socket.io-client";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // private
 // -----------------------------------------------------------------------------
@@ -52,6 +53,7 @@ try {
   );
   FIREBASE_CONFIG = {};
 }
+
 
 let firebaseApp: ReturnType<typeof initializeApp> | null = null;
 let firestore: ReturnType<typeof getFirestore> | null = null;
@@ -79,6 +81,15 @@ const _getStorage = () => {
 };
 
 // -----------------------------------------------------------------------------
+
+
+export const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY, // safe for browser
+  {
+    auth: { persistSession: false },
+  },
+);
 
 export const loadFirebaseStorage = async () => {
   return _getStorage();
@@ -141,6 +152,59 @@ export const isSavedToFirebase = (
   // prevent unload (there's nothing we could do at that point anyway)
   return true;
 };
+
+export const saveFiles = async ({
+  prefix,
+  files,
+}: {
+  prefix: string;
+  files: { id: FileId; buffer: Uint8Array }[];
+}) => {
+  if (
+    import.meta.env.VITE_SUPABASE_URL &&
+    import.meta.env.VITE_SUPABASE_ANON_KEY
+  )
+    return saveFilesToSupabase({ prefix, files });
+  else return saveFilesToFirebase({ prefix, files });
+};
+
+export const saveFilesToSupabase =  async ({
+  prefix,
+  files,
+}: {
+  prefix: string;
+  files: { id: FileId; buffer: Uint8Array }[];
+}) => {
+  const bucket = "excalidraw-files";
+
+  const savedFiles: FileId[] = [];
+  const erroredFiles: FileId[] = [];
+
+  await Promise.all(
+    files.map(async ({ id, buffer }) => {
+      try {
+        const path = `${prefix}/${id}`;
+
+        const { error } = await supabase.storage
+          .from(bucket)
+          .upload(path, buffer, {
+            upsert: true,
+            contentType: "application/octet-stream",
+            cacheControl: "31536000",
+          });
+
+        if (error) throw error;
+
+        savedFiles.push(id);
+      } catch (err) {
+        erroredFiles.push(id);
+      }
+    }),
+  );
+
+  return { savedFiles, erroredFiles };
+};
+
 
 export const saveFilesToFirebase = async ({
   prefix,
@@ -270,6 +334,67 @@ export const loadFromFirebase = async (
 
   return elements;
 };
+
+export const loadFiles = async (
+  prefix: string,
+  decryptionKey: string,
+  fileIds: readonly FileId[],
+) => {
+  if(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY)
+    return loadFilesFromSupabase(prefix, decryptionKey, fileIds);
+  else return loadFilesFromFirebase(prefix, decryptionKey, fileIds);
+}
+
+export const loadFilesFromSupabase = async (
+  prefix: string,
+  decryptionKey: string,
+  fileIds: readonly FileId[],
+) => {
+  const bucket = "excalidraw-files";
+
+  const loadedFiles: BinaryFileData[] = [];
+  const erroredFiles = new Map<FileId, true>();
+
+  await Promise.all(
+    [...new Set(fileIds)].map(async (id) => {
+      try {
+        const path = `${prefix}/${id}`;
+
+        const { data, error } = await supabase.storage
+          .from(bucket)
+          .download(path);
+
+        if (error || !data) {
+          erroredFiles.set(id, true);
+          return;
+        }
+
+        const arrayBuffer = await data.arrayBuffer();
+        const { data: decompressed, metadata } =
+          await decompressData<BinaryFileMetadata>(
+            new Uint8Array(arrayBuffer),
+            { decryptionKey },
+          );
+
+        const dataURL = new TextDecoder().decode(decompressed) as DataURL;
+
+        loadedFiles.push({
+          mimeType: metadata.mimeType ?? MIME_TYPES.binary,
+          id,
+          dataURL,
+          created: metadata.created ?? Date.now(),
+          lastRetrieved: metadata.created ?? Date.now(),
+        });
+      } catch (err) {
+        console.error(err);
+        erroredFiles.set(id, true);
+      }
+    }),
+  );
+
+  return { loadedFiles, erroredFiles };
+};
+
 
 export const loadFilesFromFirebase = async (
   prefix: string,

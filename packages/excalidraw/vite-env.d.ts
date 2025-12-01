@@ -49,6 +49,9 @@ interface ImportMetaEnv {
   VITE_APP_PLUS_LP: string;
   VITE_APP_PLUS_APP: string;
 
+  VITE_SUPABASE_URL: string;
+  VITE_SUPABASE_ANON_KEY: string;
+
   VITE_WORKER_ID: string;
   MODE: string;
   DEV: string;
