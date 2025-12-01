@@ -84,8 +84,8 @@ const _getStorage = () => {
 
 
 export const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY, // safe for browser
+  import.meta.env.VITE_SUPABASE_URL || 'http://localhost:3000',
+  import.meta.env.VITE_SUPABASE_ANON_KEY || 'N/A',
   {
     auth: { persistSession: false },
   },
